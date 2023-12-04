@@ -46,7 +46,7 @@ async fn main() {
             Arg::new("output").short('o').help("The path to the desired encrypted file.").required(false),
             Arg::new("key").short('k').help("The path to the key file.").required_if_eq("method", "dec"),
             Arg::new("method").short('m').help("Either 'enc' to encrypt or 'dec' to decrypt.").required(true),
-            Arg::new("steps").short('s').help("The amount of encryption layers the program should apply.").required(false).default_missing_value("16"),
+            Arg::new("steps").short('s').help("The amount of encryption layers the program should apply.").required_if_eq("method", "enc").default_missing_value("16"),
         ])
         .about("This is Transform Obscure Advanced Secure Technique Encryption Routine, or TOASTER, a stupid program, more intelligent that the creator.")
         .get_matches();
@@ -239,7 +239,8 @@ impl EncodedTOAST {
     if steps == 0 {
       panic!("Cannot encrypt 0 times.")
     }
-    for _ in 0..steps {
+    for s in 0..steps {
+      println!("Step {}/{}", s, steps);
       owo = encrypt_step(owo.clone(), key.clone());
     }
 
