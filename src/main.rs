@@ -1,6 +1,8 @@
+mod shuffle;
+
+use crate::shuffle::shuffle_beta;
 use base64::engine::general_purpose;
 use base64::Engine;
-use clap::builder::Str;
 use clap::{Arg, Command};
 use indicatif::ProgressBar;
 use rand::random;
@@ -11,8 +13,6 @@ use std::str::FromStr;
 use text_io::read;
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-
-const REV: usize = 1;
 
 #[derive(Serialize, Deserialize)]
 pub struct Key {
@@ -39,9 +39,9 @@ async fn main() {
         .author("Clifton Toaster Reid")
         .version("v0.1.0 TOAST")
         .args([
-            Arg::new("input").short('i').help("The path to the text to encrypt.").required(true),
+            Arg::new("input").short('i').help("The path to the text to encrypt or decrypt.").required(true),
             Arg::new("output").short('o').help("The path to the desired encrypted file.").required(false),
-            Arg::new("key").short('k').help("The path to the key file.").required_if_eq("method", "ded"),
+            Arg::new("key").short('k').help("The path to the key file.").required_if_eq("method", "dec"),
             Arg::new("method").short('m').help("Either 'enc' to encrypt or 'dec' to decrypt.").required(true),
         ])
         .about("This is Transform Obscure Advanced Secure Technique Encryption Routine, or TOASTER, a stupid program, more intelligent that the creator.")
@@ -62,7 +62,6 @@ async fn main() {
 
     match encrypt.get_one::<String>("method").unwrap().as_str() {
         "enc" => {
-            println!("Divinding text.");
             let owo = divide_text(&owo);
 
             let data = match encrypt.get_one::<String>("key") {
@@ -139,7 +138,7 @@ async fn main() {
 
                 let k: Key = toml::from_str(&k_raw).unwrap();
 
-                decrypt_step(owo, k.key).join("")
+                decrypt_step(owo, k.key).await.join("")
             };
 
             File::create(match encrypt.get_one::<String>("output") {
@@ -164,32 +163,50 @@ async fn main() {
 fn divide_text(s: &str) -> Vec<String> {
     let mut owo: Vec<String> = Vec::new();
     let mut uwu: String = String::new();
-
+    
+    #[cfg(debug_assertions)]
+    print!("Chars : [ ");
     for c in s.chars() {
+        #[cfg(debug_assertions)]
+        print!("'{}'", c);
         if (c == ' ') | (c == '.') | (c == '?') | (c == '!') | (c == ',') | (c == ':') {
+            #[cfg(debug_assertions)]
+            print!("r, ");
             if !uwu.is_empty() {
                 owo.push(uwu.clone());
                 uwu = String::new();
                 owo.push(c.to_string());
+            } else {
+                owo.push(c.to_string());
             }
         } else {
+            #[cfg(debug_assertions)]
+            print!("n, ");
             uwu.push(c);
         }
     }
     if !uwu.is_empty() {
         owo.push(uwu.clone());
     }
+    
+    #[cfg(debug_assertions)]
+    println!("] {:?}", &owo);
 
     owo
 }
 
 pub fn encrypt_step(data: Vec<String>, key: Vec<u8>) -> Vec<String> {
+    #[cfg(debug_assertions)]
+    println!("Encrypting data:\n\n-- {:?}", data);
+
     let mut new: Vec<String> = Vec::new();
     let progress = ProgressBar::new(data.len() as u64);
 
     for uwu in data.iter() {
         progress.inc(1);
         if (uwu == " ") | (uwu == ".") | (uwu == "?") | (uwu == "!") | (uwu == ",") | (uwu == ":") {
+            #[cfg(debug_assertions)]
+            println!("--{}--", uwu);
             new.push(uwu.clone());
         } else {
             let nuzzle: Vec<u8> = uwu
@@ -199,7 +216,11 @@ pub fn encrypt_step(data: Vec<String>, key: Vec<u8>) -> Vec<String> {
                 .map(|(code, key)| (code ^ key))
                 .collect();
 
-            new.push(general_purpose::STANDARD.encode(&nuzzle).to_string())
+            new.push(
+                general_purpose::STANDARD
+                    .encode(&shuffle_beta(nuzzle.to_owned()))
+                    .to_string(),
+            )
         }
     }
     progress.finish();
@@ -207,25 +228,50 @@ pub fn encrypt_step(data: Vec<String>, key: Vec<u8>) -> Vec<String> {
     new
 }
 
-pub fn decrypt_step(data: Vec<String>, key: Vec<u8>) -> Vec<String> {
-    let mut decoded: Vec<String> = Vec::new();
+pub async fn decrypt_step(data_r: Vec<String>, key: Vec<u8>) -> Vec<String> {
+    let data: Vec<Vec<u8>> = data_r
+        .into_iter()
+        .map(|uwu| {
+            if (uwu == " ")
+                | (uwu == ".")
+                | (uwu == "?")
+                | (uwu == "!")
+                | (uwu == ",")
+                | (uwu == ":")
+            {
+                uwu.into_bytes()
+            } else {
+                shuffle_beta(general_purpose::STANDARD.decode(uwu).unwrap())
+            }
+        })
+        .collect();
+
+    #[cfg(debug_assertions)]
+    println!("Decrypting data:\n\n-- {:?}", data);
+
     let progress = ProgressBar::new(data.len() as u64);
 
+    let mut decoded: Vec<String> = Vec::new();
     for uwu in data.iter() {
         progress.inc(1);
-        if (uwu == " ") | (uwu == ".") | (uwu == "?") | (uwu == "!") | (uwu == ",") | (uwu == ":") {
-            decoded.push(uwu.clone());
+        if (uwu == " ".as_bytes())
+            | (uwu == ".".as_bytes())
+            | (uwu == "?".as_bytes())
+            | (uwu == "!".as_bytes())
+            | (uwu == ",".as_bytes())
+            | (uwu == ":".as_bytes())
+        {
+            decoded.push(String::from_utf8(uwu.clone()).unwrap());
+            #[cfg(debug_assertions)]
+            println!("=='{}'==", String::from_utf8(uwu.clone()).unwrap())
         } else {
-            print!("{}", &uwu);
-            let nuzzle: Vec<u8> = general_purpose::STANDARD.decode(uwu.as_bytes()).unwrap();
-
-            let original: String = nuzzle
+            let original: Vec<u8> = uwu
                 .iter()
                 .zip(key.iter().cycle())
-                .map(|(code, key)| (code ^ key) as char)
+                .map(|(code, key)| (code ^ key))
                 .collect();
 
-            decoded.push(original);
+            decoded.push(String::from_utf8(original).unwrap());
         }
     }
     progress.finish();
@@ -235,19 +281,27 @@ pub fn decrypt_step(data: Vec<String>, key: Vec<u8>) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
+    use rand::Rng;
     use super::*;
 
-    #[test]
-    fn test_encryption_decryption() {
+    #[tokio::test]
+    async fn test_encryption_decryption() {
         // Test data
-        let original_text = divide_text("Hello, world!");
-        let key: Vec<u8> = vec![0x0F, 0xAA, 0x42, 0x7E]; // Replace this with a secure way to generate a key
+        let original_text = divide_text(&rand::thread_rng()
+          .sample_iter::<char, _>(rand::distributions::Standard)
+          .take(69420)
+          .collect::<String>());
+        
+        let key: Vec<u8> = rand::thread_rng()
+          .sample_iter::<u8, _>(rand::distributions::Standard)
+          .take(69)
+          .collect(); // Replace this with a secure way to generate a key
 
         // Encrypt the text
         let encrypted_data = encrypt_step(original_text.clone(), key.clone());
 
         // Decrypt the text
-        let decrypted_data = decrypt_step(encrypted_data.clone(), key);
+        let decrypted_data = decrypt_step(encrypted_data.clone(), key).await;
 
         // Assertions
         assert_eq!(original_text, decrypted_data);
