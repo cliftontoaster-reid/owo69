@@ -28,4 +28,4 @@ FROM archlinux:latest
 COPY --from=build /owo69/target/release/owo69 ./
 
 # set the startup command to run your binary
-CMD ["./narqyez_handler"]
+CMD ["./owo69"]
