@@ -23,7 +23,7 @@ pub struct Key {
 
 impl Key {
     pub fn gen(l: usize) -> Self {
-        let uwu: Vec<u8> = (0..l - 1).map(|_| random()).collect();
+        let uwu: Vec<u8> = (0..l - 1).map(|_| random::<u8>()).collect();
 
         Self {
             length: l,
@@ -35,7 +35,7 @@ impl Key {
 
 #[tokio::main]
 async fn main() {
-    let encrypt = Command::new("encrypt")
+    let encrypt = Command::new("owo69")
         .author("Clifton Toaster Reid")
         .version("v0.1.0 TOAST")
         .args([
