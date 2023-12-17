@@ -7,6 +7,7 @@ use clap::{Arg, Command};
 use indicatif::ProgressBar;
 use rand::random;
 use serde::{Deserialize, Serialize};
+use xz::bufread::{XzEncoder, XzDecoder};
 use std::path::PathBuf;
 use std::process::exit;
 use std::str::FromStr;
@@ -15,7 +16,7 @@ use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use toml::{from_str, to_string_pretty};
 
-const VERSION: (u16, u16, u16) = (0, 1, 2);
+const VERSION: (u16, u16, u16) = (0, 1, 3);
 
 #[derive(Serialize, Deserialize)]
 pub struct Key {
@@ -324,7 +325,11 @@ pub fn encrypt_step(data: Vec<String>, key: Vec<u8>) -> Vec<String> {
 
       new.push(
         general_purpose::STANDARD
-          .encode(&shuffle_alpha(nuzzle.to_owned()))
+          .encode(
+            &shuffle_alpha(
+              XzEncoder::new(nuzzle.to_owned().as_slice(), 9).into_inner().to_vec()
+            )
+          )
           .to_string(),
       )
     }
@@ -341,7 +346,15 @@ pub fn decrypt_step(data_r: Vec<String>, key: Vec<u8>) -> Vec<String> {
       if (uwu == " ") | (uwu == ".") | (uwu == "?") | (uwu == "!") | (uwu == ",") | (uwu == ":") {
         uwu.into_bytes()
       } else {
-        shuffle_alpha(general_purpose::STANDARD.decode(uwu).unwrap())
+        let owo = shuffle_alpha(
+          general_purpose::STANDARD.decode(
+            uwu
+          ).unwrap()
+        );
+        let hihi = XzDecoder::new(
+          owo.as_slice()
+        );
+        hihi.into_inner().to_vec()
       }
     })
     .collect();
